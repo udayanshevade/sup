@@ -1,4 +1,6 @@
 import * as React from 'react';
+import classnames from 'classnames';
+import './index.scss';
 
 export const Video = ({
   id,
@@ -38,7 +40,7 @@ export const Video = ({
   return (
     <video
       id={id}
-      className={className}
+      className={classnames('video', className)}
       ref={getRef}
       autoPlay={autoPlay}
       playsInline={playsInline}

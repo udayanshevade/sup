@@ -8,7 +8,7 @@ export const getConnectedDevices = async (
         ({ kind: deviceKind }: MediaDeviceInfo): boolean => deviceKind === kind
       );
     }
-    console.log('queryMediaDevices', devices);
+    console.log('getConnectedDevices', devices);
     return devices;
   } catch (err) {
     console.log('Failed to query media devices', err);
@@ -23,6 +23,7 @@ export const listenToMediaDevicesChange = (
     'devicechange',
     async (event: Event) => {
       const devices: MediaDeviceInfo[] | null = await getConnectedDevices();
+      console.log('Devices changed', devices);
       handleDevices(devices);
     }
   );
