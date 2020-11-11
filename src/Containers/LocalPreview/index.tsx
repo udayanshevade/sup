@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { getMediaStream, stopMediaStream } from '../../lib/stream';
+import { startMediaStream, stopMediaStream } from '../../lib/stream';
 import { Video } from '../../components/Video';
 import { CamIconOn, CamIconOff } from '../../components/Icons/Cam';
 import './index.scss';
@@ -34,7 +34,7 @@ export const LocalPreview = () => {
 
   const startStream = async () => {
     setStatus('starting');
-    const stream = await getMediaStream({ video: true, audio: true });
+    const stream = await startMediaStream({ video: true, audio: true });
     if (!stream) {
       setStatus('stopped');
       return;
