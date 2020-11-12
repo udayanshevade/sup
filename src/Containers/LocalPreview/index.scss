@@ -38,3 +38,11 @@
 .preview-button:hover {
   background: rgb(0, 0, 0);
 }
+
+.actions-container {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0;
+}

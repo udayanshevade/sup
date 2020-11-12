@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { startMediaStream, stopMediaStream } from '../../lib/stream';
+import { call } from '../../lib/peerConnection';
 import { Video } from '../../components/Video';
 import { CamIconOn, CamIconOff } from '../../components/Icons/Cam';
 import './index.scss';
@@ -36,6 +37,7 @@ export const LocalPreview = () => {
     setStatus('starting');
     const stream = await startMediaStream({ video: true, audio: true });
     if (!stream) {
+      console.error('Something went wrong while starting the stream');
       setStatus('stopped');
       return;
     }
@@ -44,7 +46,10 @@ export const LocalPreview = () => {
 
   const stopStream = async (stream: MediaStream | null) => {
     setStatus('stopping');
-    if (stream) stopMediaStream(stream);
+    if (stream) {
+      stopMediaStream(stream);
+      setStream(null);
+    }
     setStatus('stopped');
   };
 
@@ -63,30 +68,41 @@ export const LocalPreview = () => {
   };
 
   return (
-    <div className="video-container">
-      <Video
-        id="previewVideo"
-        className="preview-video"
-        stream={stream}
-        getVideoRef={getVideoRef}
-      />
-      <div className="buttons-tray">
+    <div className="local-preview-container">
+      <div className="video-container">
+        <Video
+          id="previewVideo"
+          className="preview-video"
+          stream={stream}
+          getVideoRef={getVideoRef}
+        />
+        <div className="buttons-tray">
+          <button
+            className="preview-button"
+            disabled={status === 'starting' || status === 'stopping'}
+            onClick={
+              status === 'started'
+                ? () => stopStream(stream)
+                : status === 'stopped'
+                ? () => startStream()
+                : undefined
+            }
+          >
+            {status === 'started' || status === 'stopping' ? (
+              <CamIconOff />
+            ) : status === 'stopped' || status === 'starting' ? (
+              <CamIconOn />
+            ) : null}
+          </button>
+        </div>
+      </div>
+      <div className="actions-container">
         <button
-          className="preview-button"
-          disabled={status === 'starting' || status === 'stopping'}
-          onClick={
-            status === 'started'
-              ? () => stopStream(stream)
-              : status === 'stopped'
-              ? () => startStream()
-              : undefined
-          }
+          className="join-button"
+          disabled={!stream}
+          onClick={stream ? () => call(stream) : undefined}
         >
-          {status === 'started' || status === 'stopping' ? (
-            <CamIconOff />
-          ) : status === 'stopped' || status === 'starting' ? (
-            <CamIconOn />
-          ) : null}
+          Join
         </button>
       </div>
     </div>
