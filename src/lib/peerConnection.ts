@@ -95,65 +95,71 @@ const gotDescriptionLocal = (
     );
 };
 
-let pc1Local: RTCPeerConnection | null;
-let pc1Remote: RTCPeerConnection | null;
-let pc2Local: RTCPeerConnection | null;
-let pc2Remote: RTCPeerConnection | null;
+type ConnectionPair = {
+  local: RTCPeerConnection | null;
+  remote: RTCPeerConnection | null;
+};
+let peerConnections: ConnectionPair[] = [];
 
-export const call = (localStream: MediaStream) => {
-  // instantiate and store new peer connections
-  pc1Local = new RTCPeerConnection();
-  pc1Remote = new RTCPeerConnection();
-
-  pc1Remote.addEventListener('track', (e: Event) => handleRemoteStream(e));
-  pc1Local.addEventListener('icecandidate', (e: Event) =>
-    iceCallbackLocal(pc1Local, 'pc1', e)
-  );
-  pc1Remote.addEventListener('icecandidate', (e: Event) =>
-    iceCallbackRemote(pc1Remote, 'pc1', e)
-  );
-
-  console.log('pc1: created local and remote peer connection objects');
-
-  pc2Local = new RTCPeerConnection();
-  pc2Remote = new RTCPeerConnection();
-
-  pc2Remote.addEventListener('track', (e: Event) => handleRemoteStream(e));
-  pc2Local.addEventListener('icecandidate', (e: Event) =>
-    iceCallbackLocal(pc2Local, 'pc2', e)
-  );
-  pc2Remote.addEventListener('icecandidate', (e: Event) =>
-    iceCallbackRemote(pc2Remote, 'pc2', e)
-  );
-
-  const localTracks: MediaStreamTrack[] = getMediaStreamTracks(localStream);
-
-  localTracks.forEach((track) => pc1Local!.addTrack(track, localStream));
-
-  console.log('Adding local stream to pc1Local');
-  pc1Local
-    .createOffer(offerOptions)
-    .then(
-      (desc) => gotDescriptionLocal(pc1Local, pc1Remote, desc),
-      onCreateSessionDescriptionError
+export const call = (
+  localStream: MediaStream,
+  numVideos: number | undefined = 2
+) => {
+  const initLocalAndRemotePair = (
+    index: number
+  ): { local: RTCPeerConnection; remote: RTCPeerConnection } => {
+    // instantiate and store new peer connections
+    const local: RTCPeerConnection = new RTCPeerConnection();
+    const remote: RTCPeerConnection = new RTCPeerConnection();
+    remote.addEventListener('track', (e: Event) => handleRemoteStream(e));
+    local.addEventListener('icecandidate', (e: Event) =>
+      iceCallbackLocal(local, `connection ${index}`, e)
+    );
+    remote.addEventListener('icecandidate', (e: Event) =>
+      iceCallbackRemote(remote, `connection ${index}`, e)
     );
 
-  localTracks.forEach((track) => pc2Local!.addTrack(track, localStream));
-  console.log('Adding local stream to pc2Local');
-  pc2Local
-    .createOffer(offerOptions)
-    .then(
-      (desc) => gotDescriptionLocal(pc2Local, pc2Remote, desc),
-      onCreateSessionDescriptionError
+    console.log(
+      `connection ${index}: created local and remote peer connection objects`
     );
+
+    return { local, remote };
+  };
+
+  new Array(numVideos).fill(0).forEach((_, i) => {
+    const { local, remote } = initLocalAndRemotePair(i);
+    peerConnections.push({ local, remote });
+  });
+
+  const processLocalAndRemotePair = async (
+    localStream: MediaStream,
+    { local, remote }: ConnectionPair,
+    i: number
+  ) => {
+    if (!local || !remote) return;
+    const localTracks: MediaStreamTrack[] = getMediaStreamTracks(localStream);
+    localTracks.forEach((track) => local!.addTrack(track, localStream));
+    console.log(`Adding local stream to local peer connection ${i}`);
+    try {
+      const desc = await local.createOffer(offerOptions);
+      gotDescriptionLocal(local, remote, desc);
+    } catch (err) {
+      onCreateSessionDescriptionError(err);
+    }
+  };
+
+  peerConnections.forEach(({ local, remote }: ConnectionPair, i: number) => {
+    processLocalAndRemotePair(localStream, { local, remote }, i);
+  });
 };
 
 export const hangup = () => {
   console.log('Ending calls');
-  if (pc1Local) pc1Local.close();
-  if (pc1Remote) pc1Remote.close();
-  if (pc2Local) pc2Local.close();
-  if (pc2Remote) pc2Remote.close();
-  pc1Local = pc1Remote = null;
-  pc2Local = pc2Remote = null;
+  peerConnections.forEach((pair: ConnectionPair) => {
+    if (pair.local) pair.local.close();
+    if (pair.remote) pair.remote.close();
+    pair.local = null;
+    pair.remote = null;
+  });
+  peerConnections = [];
 };
