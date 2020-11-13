@@ -10,11 +10,20 @@ const mockDevice = {
   label: '',
   groupId: 'default',
 };
-// mockDevice.__proto__ = MediaDeviceInfo.prototype;
-window.navigator = {
-  mediaDevices: {
-    enumerateDevices() {
-      return new Promise((res) => res([mockDevice]));
-    },
+
+global.navigator.mediaDevices = {
+  events: {},
+  enumerateDevices() {
+    return new Promise((res) => res([mockDevice]));
+  },
+  addEventListener(event, callback) {
+    this.events[event] = this.events[event]
+      ? [...this.events[event], callback]
+      : [callback];
+  },
+  async dispatchEvent(event) {
+    const callbacks = this.events[event.type];
+    if (!callbacks) return;
+    await Promise.all(callbacks.map((callback) => callback(event)));
   },
 };
