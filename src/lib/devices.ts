@@ -2,6 +2,7 @@ export const getConnectedDevices = async (
   kind?: string
 ): Promise<MediaDeviceInfo[] | null> => {
   try {
+    console.log(navigator);
     let devices: MediaDeviceInfo[] = await navigator.mediaDevices.enumerateDevices();
     if (kind) {
       devices = devices.filter(
