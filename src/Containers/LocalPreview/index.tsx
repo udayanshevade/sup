@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { startMediaStream, stopMediaStream } from '../../lib/stream';
-import { call } from '../../lib/peerConnection';
+import { call, hangup } from '../../lib/peerConnection';
 import { Video } from '../../components/Video';
 import { CamIconOn, CamIconOff } from '../../components/Icons/Cam';
 import './index.scss';
@@ -11,6 +11,8 @@ type LocalPreviewStatus =
   | 'started'
   | 'stopping'
   | 'stopped';
+
+type JoinStatus = 'joining' | 'joined' | 'leaving' | 'out';
 
 /**
  * Local A/V preview
@@ -27,6 +29,8 @@ type LocalPreviewStatus =
 export const LocalPreview = () => {
   const [stream, setStream] = React.useState<MediaStream | null>(null);
   const [status, setStatus] = React.useState<LocalPreviewStatus>('stopped');
+  const [joinStatus, setJoinStatus] = React.useState<JoinStatus>('out');
+
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const onVideoLoadedHandlerRef = React.useRef(() => {
     console.log('video stream has loaded');
@@ -67,6 +71,16 @@ export const LocalPreview = () => {
     }
   };
 
+  const handleCall = async (stream: MediaStream): Promise<void> => {
+    setJoinStatus('joining');
+    await call(stream);
+    setJoinStatus('joined');
+  };
+
+  const handleHangup = () => {
+    hangup();
+  };
+
   return (
     <div className="local-preview-container">
       <div className="video-container">
@@ -97,13 +111,23 @@ export const LocalPreview = () => {
         </div>
       </div>
       <div className="actions-container">
-        <button
-          className="join-button"
-          disabled={!stream}
-          onClick={stream ? () => call(stream) : undefined}
-        >
-          Join
-        </button>
+        {joinStatus === 'out' ? (
+          <button
+            className="join-button"
+            disabled={!stream}
+            onClick={stream ? () => handleCall(stream) : undefined}
+          >
+            Join
+          </button>
+        ) : (
+          <button
+            className="exit-button"
+            disabled={joinStatus !== 'joined'}
+            onClick={handleHangup}
+          >
+            Exit
+          </button>
+        )}
       </div>
     </div>
   );
