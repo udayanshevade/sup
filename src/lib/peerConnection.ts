@@ -1,14 +1,5 @@
 import { getMediaStreamTracks } from './stream';
 
-const handleRemoteStream = (e: Event) => {
-  const { streams } = e as RTCTrackEvent;
-  // if (video.srcObject !== streams[0]) {
-  //   video.srcObject = streams[0];
-  //   console.log('video received remote stream');
-  // }
-  console.log(streams[0]);
-};
-
 const onAddIceCandidateSuccess = () => {
   console.log('AddIceCandidate success');
 };
@@ -17,20 +8,23 @@ const onAddIceCandidateError = (error: Error) => {
   console.log(`Failed to add ICE candidate: ${error.toString()}`);
 };
 
-const handleCandidate = (
+const handleCandidate = async (
   candidate: RTCIceCandidate,
-  dest: RTCPeerConnection,
+  destination: RTCPeerConnection,
   prefix: string,
   type: string
 ) => {
-  dest
-    .addIceCandidate(candidate)
-    .then(onAddIceCandidateSuccess, onAddIceCandidateError);
-  console.log(
-    `${prefix}: New ${type} ICE candidate: ${
-      candidate ? candidate.candidate : '(null)'
-    }`
-  );
+  try {
+    await destination.addIceCandidate(candidate);
+    onAddIceCandidateSuccess();
+    console.log(
+      `${prefix}: New ${type} ICE candidate: ${
+        candidate ? candidate.candidate : '(null)'
+      }`
+    );
+  } catch (err) {
+    onAddIceCandidateError(err);
+  }
 };
 
 const iceCallbackLocal = (
@@ -62,10 +56,10 @@ const offerOptions: {
 };
 
 const onCreateSessionDescriptionError = (error: Error) => {
-  console.log(`Failed to create session description: ${error.toString()}`);
+  console.error(`Failed to create session description: ${error.toString()}`);
 };
 
-const gotDescriptionRemote = (
+const gotDescriptionRemote = async (
   pcLocal: RTCPeerConnection,
   pcRemote: RTCPeerConnection,
   desc: RTCSessionDescriptionInit
@@ -75,24 +69,24 @@ const gotDescriptionRemote = (
   pcLocal.setRemoteDescription(desc);
 };
 
-const gotDescriptionLocal = (
+const gotDescriptionLocal = async (
   pcLocal: RTCPeerConnection | null,
   pcRemote: RTCPeerConnection | null,
   desc: RTCSessionDescriptionInit
 ) => {
   if (!pcLocal || !pcRemote) return;
   pcLocal.setLocalDescription(desc);
-  console.log(`Offer from pc ${desc.sdp}`);
+  console.log(`Offer from pc local ${desc.sdp}`);
   pcRemote.setRemoteDescription(desc);
   // Since the 'remote' side has no media stream we need
   // to pass in the right constraints in order for it to
   // accept the incoming offer of audio and video.
-  pcRemote
-    .createAnswer()
-    .then(
-      (desc) => gotDescriptionRemote(pcLocal, pcRemote, desc),
-      onCreateSessionDescriptionError
-    );
+  try {
+    const answer = await pcRemote.createAnswer();
+    gotDescriptionRemote(pcLocal, pcRemote, answer);
+  } catch (err) {
+    onCreateSessionDescriptionError(err);
+  }
 };
 
 type ConnectionPair = {
@@ -101,23 +95,40 @@ type ConnectionPair = {
 };
 let peerConnections: ConnectionPair[] = [];
 
+const checkStreams = (stream: MediaStream) => {
+  const audioTracks = getMediaStreamTracks(stream, 'audio');
+  const videoTracks = getMediaStreamTracks(stream, 'video');
+  if (audioTracks.length > 0) {
+    console.log(`Using audio device: ${audioTracks[0].label}`);
+  }
+  if (videoTracks.length > 0) {
+    console.log(`Using video device: ${videoTracks[0].label}`);
+  }
+};
+
 export const call = (
   localStream: MediaStream,
+  handleRemoteStream: (stream: MediaStream) => void,
   numVideos: number | undefined = 2
 ) => {
+  checkStreams(localStream);
+
   const initLocalAndRemotePair = (
     index: number
   ): { local: RTCPeerConnection; remote: RTCPeerConnection } => {
     // instantiate and store new peer connections
     const local: RTCPeerConnection = new RTCPeerConnection();
     const remote: RTCPeerConnection = new RTCPeerConnection();
-    remote.addEventListener('track', (e: Event) => handleRemoteStream(e));
-    local.addEventListener('icecandidate', (e: Event) =>
-      iceCallbackLocal(local, `connection ${index}`, e)
-    );
-    remote.addEventListener('icecandidate', (e: Event) =>
-      iceCallbackRemote(remote, `connection ${index}`, e)
-    );
+    remote.ontrack = (e: Event) => {
+      const { streams } = e as RTCTrackEvent;
+      handleRemoteStream(streams[0]);
+    };
+    local.onicecandidate = (e: Event) => {
+      iceCallbackLocal(remote, `connection ${index}`, e);
+    };
+    remote.onicecandidate = (e: Event) => {
+      iceCallbackRemote(local, `connection ${index}`, e);
+    };
 
     console.log(
       `connection ${index}: created local and remote peer connection objects`
@@ -132,13 +143,15 @@ export const call = (
   });
 
   const processLocalAndRemotePair = async (
-    localStream: MediaStream,
+    stream: MediaStream,
     { local, remote }: ConnectionPair,
     i: number
   ) => {
     if (!local || !remote) return;
-    const localTracks: MediaStreamTrack[] = getMediaStreamTracks(localStream);
-    localTracks.forEach((track) => local!.addTrack(track, localStream));
+    const localTracks: MediaStreamTrack[] = getMediaStreamTracks(stream);
+    localTracks.forEach((track: MediaStreamTrack) =>
+      local!.addTrack(track, stream)
+    );
     console.log(`Adding local stream to local peer connection ${i}`);
     try {
       const desc = await local.createOffer(offerOptions);
@@ -154,7 +167,7 @@ export const call = (
 };
 
 export const hangup = () => {
-  console.log('Ending calls');
+  console.log('Ending call');
   peerConnections.forEach((pair: ConnectionPair) => {
     if (pair.local) pair.local.close();
     if (pair.remote) pair.remote.close();
