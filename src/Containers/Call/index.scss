@@ -1,0 +1,46 @@
+.call-container {
+  .videos-container {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+
+    .video-container {
+      width: 100%;
+    }
+  }
+  .exit-button {
+    background: rgba(0, 0, 0, 0.8);
+    padding: 0.75rem 0.75rem 0.3rem;
+    transition: background 0.2s ease-in-out;
+    border-radius: 50%;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.95);
+      .call-icon {
+        fill: rgba(255, 0, 0, 1);
+      }
+    }
+
+    .call-icon {
+      width: 32px;
+      height: auto;
+      fill: rgba(255, 0, 0, 0.75);
+      transition: fill 0.2s ease-in-out;
+    }
+  }
+}
+
+@media screen and (min-width: 800px) {
+  .call-container {
+    height: 100%;
+    .videos-container {
+      height: 100%;
+      .video-container {
+        width: 50%;
+        height: 50%;
+        margin-top: 0;
+      }
+    }
+  }
+}

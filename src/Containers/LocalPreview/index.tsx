@@ -1,8 +1,9 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { startMediaStream, stopMediaStream } from '../../lib/stream';
-import { call, hangup } from '../../lib/peerConnection';
 import { Video } from '../../components/Video';
 import { CamIconOn, CamIconOff } from '../../components/Icons/Cam';
+import { CallStart } from '../../components/Icons/Call';
 import './index.scss';
 
 type LocalPreviewStatus =
@@ -26,11 +27,18 @@ type JoinStatus = 'joining' | 'joined' | 'leaving' | 'out';
  *
  * debounce button action
  */
-export const LocalPreview = () => {
-  const [stream, setStream] = React.useState<MediaStream | null>(null);
-  const [remoteStreams, setRemoteStreams] = React.useState<MediaStream[]>([]);
+export const LocalPreview = ({
+  stream,
+  setStream,
+  joinStatus,
+  setJoinStatus,
+}: {
+  stream: MediaStream | null;
+  setStream: (stream: MediaStream | null) => void;
+  joinStatus: JoinStatus;
+  setJoinStatus: (joinStatus: JoinStatus) => void;
+}) => {
   const [status, setStatus] = React.useState<LocalPreviewStatus>('stopped');
-  const [joinStatus, setJoinStatus] = React.useState<JoinStatus>('out');
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const onVideoLoadedHandlerRef = React.useRef(() => {
@@ -72,27 +80,6 @@ export const LocalPreview = () => {
     }
   };
 
-  const handleRemoteStream = (newStream: MediaStream) => {
-    setRemoteStreams((currentStreams) => {
-      return currentStreams.includes(newStream)
-        ? currentStreams
-        : [...currentStreams, newStream];
-    });
-  };
-
-  const handleCall = async (stream: MediaStream): Promise<void> => {
-    setJoinStatus('joining');
-    await call(stream, handleRemoteStream, 1);
-    setJoinStatus('joined');
-  };
-
-  const handleHangup = () => {
-    setJoinStatus('leaving');
-    hangup();
-    setRemoteStreams([]);
-    setJoinStatus('out');
-  };
-
   return (
     <div className="container">
       <div className="local-preview-container">
@@ -105,7 +92,7 @@ export const LocalPreview = () => {
           />
           <div className="buttons-tray">
             <button
-              className="preview-button"
+              className="action-button preview-button"
               disabled={status === 'starting' || status === 'stopping'}
               onClick={
                 status === 'started'
@@ -116,43 +103,23 @@ export const LocalPreview = () => {
               }
             >
               {status === 'started' || status === 'stopping' ? (
-                <CamIconOff />
+                <CamIconOff className="action-icon" />
               ) : status === 'stopped' || status === 'starting' ? (
-                <CamIconOn />
+                <CamIconOn className="action-icon" />
               ) : null}
             </button>
+            {joinStatus === 'out' && Boolean(stream) && (
+              <button
+                className="action-button join-button"
+                onClick={() => setJoinStatus('joining')}
+              >
+                <Link to="/call">
+                  <CallStart className="action-icon" />
+                </Link>
+              </button>
+            )}
           </div>
         </div>
-        <div className="actions-container">
-          {joinStatus === 'out' ? (
-            <button
-              className="join-button"
-              disabled={!stream}
-              onClick={stream ? () => handleCall(stream) : undefined}
-            >
-              Join
-            </button>
-          ) : (
-            <button
-              className="exit-button"
-              disabled={joinStatus !== 'joined'}
-              onClick={handleHangup}
-            >
-              Exit
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="videos-container">
-        {remoteStreams.map((remoteStream, i) => (
-          <div key={`remoteStream${i}`} className="video-container">
-            <Video
-              id={`remoteStream${i}`}
-              className="remote-video"
-              stream={remoteStream}
-            />
-          </div>
-        ))}
       </div>
     </div>
   );
