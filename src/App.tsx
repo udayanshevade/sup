@@ -30,6 +30,7 @@ const App = () => {
               exact
               render={(routeProps) => (
                 <LocalPreview
+                  {...routeProps}
                   stream={stream}
                   setStream={setStream}
                   joinStatus={joinStatus}
@@ -42,6 +43,7 @@ const App = () => {
               exact
               render={(routeProps) => (
                 <Call
+                  {...routeProps}
                   stream={stream}
                   joinStatus={joinStatus}
                   setJoinStatus={setJoinStatus}
