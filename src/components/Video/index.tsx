@@ -39,6 +39,7 @@ export const Video = ({
 
   return (
     <video
+      data-testid="video-element"
       id={id}
       className={classnames('video', className)}
       ref={getRef}
