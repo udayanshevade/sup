@@ -13,6 +13,9 @@ const mockDevice = {
 
 global.navigator.mediaDevices = {
   events: {},
+  async getUserMedia(constraints) {
+    return { ...constraints };
+  },
   enumerateDevices() {
     return new Promise((res) => res([mockDevice]));
   },
@@ -26,4 +29,37 @@ global.navigator.mediaDevices = {
     if (!callbacks) return;
     await Promise.all(callbacks.map((callback) => callback(event)));
   },
+};
+
+global.MediaStream = class {
+  constructor() {
+    this.name = 'MediaStream';
+    this.tracks = [
+      new MediaStreamTrack({ kind: 'audio' }),
+      new MediaStreamTrack({ kind: 'video' }),
+    ];
+  }
+  getAudioTracks() {
+    return this.tracks.filter(({ kind }) => kind === 'audio');
+  }
+  getVideoTracks() {
+    return this.tracks.filter(({ kind }) => kind === 'video');
+  }
+  getTracks() {
+    return [...this.getAudioTracks(), ...this.getVideoTracks()];
+  }
+};
+
+global.MediaStreamTrack = class {
+  constructor({ kind }) {
+    this.name = 'MediaStreamTrack';
+    this.kind = kind;
+    this.label = `${kind} device label`;
+    this.muted = false;
+    this.enabled = true;
+    this.readyState = 'live';
+  }
+  stop() {
+    this.readyState = 'ended';
+  }
 };
